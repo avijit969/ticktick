@@ -1,98 +1,304 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-
+import TodoItem from '@/components/TodoItem';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { db } from '@/utils/db';
+import { Ionicons } from '@expo/vector-icons';
+import { id } from '@instantdb/react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { user } = db.useAuth();
+  // Filter by owner.id. If user is null, pass null to skip query
+  const { isLoading, error, data } = db.useQuery(
+    user ? { todos: { $: { where: { 'owner.id': user.id } } } } : null
+  );
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [newTodoText, setNewTodoText] = useState('');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'dark'];
+
+  const handleAddTodo = () => {
+    if (!newTodoText.trim()) return;
+
+    const todoId = id();
+
+    // Create todo and link to user if logged in
+    const ops = [
+      db.tx.todos[todoId].update({
+        text: newTodoText,
+        isCompleted: false,
+        createdAt: Date.now(),
+        priority,
+      }),
+    ];
+
+    if (user) {
+      ops.push(db.tx.todos[todoId].link({ owner: user.id }));
+    }
+
+    db.transact(ops);
+
+    setNewTodoText('');
+    setModalVisible(false);
+  };
+
+  const handleToggleTodo = (todoId: string, isCompleted: boolean) => {
+    db.transact(db.tx.todos[todoId].update({ isCompleted }));
+  };
+
+  const handleDeleteTodo = (todoId: string) => {
+    db.transact(db.tx.todos[todoId].delete());
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.text }}>Error: {error.message}</Text>
+      </View>
+    );
+  }
+
+  const todos = data?.todos ?? [];
+  const sortedTodos = [...todos].sort((a, b) => b.createdAt - a.createdAt);
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>Today's Tasks</Text>
+        <Text style={[styles.subtitle, { color: theme.icon }]}>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </Text>
+      </View>
+
+      <FlatList
+        data={sortedTodos}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TodoItem
+            todo={item}
+            onToggle={handleToggleTodo}
+            onDelete={handleDeleteTodo}
+          />
+        )}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="clipboard-outline" size={64} color={theme.icon} />
+            <Text style={[styles.emptyText, { color: theme.icon }]}>No tasks yet</Text>
+          </View>
+        }
+      />
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.primary }]}
+        onPress={() => setModalVisible(true)}
+      >
+        <Ionicons name="add" size={32} color="#fff" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>New Task</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.inputBackground,
+                  color: theme.text,
+                  borderColor: theme.border
+                }
+              ]}
+              placeholder="What needs to be done?"
+              placeholderTextColor={theme.icon}
+              value={newTodoText}
+              onChangeText={setNewTodoText}
+              autoFocus
+            />
+
+            <View style={styles.priorityContainer}>
+              <Text style={[styles.label, { color: theme.text }]}>Priority:</Text>
+              <View style={styles.priorityOptions}>
+                {(['low', 'medium', 'high'] as const).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[
+                      styles.priorityButton,
+                      {
+                        borderColor: theme.border,
+                        backgroundColor: priority === p ? theme.primary : 'transparent'
+                      }
+                    ]}
+                    onPress={() => setPriority(p)}
+                  >
+                    <Text style={{
+                      color: priority === p ? '#fff' : theme.text,
+                      textTransform: 'capitalize'
+                    }}>
+                      {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: theme.primary }]}
+              onPress={handleAddTodo}
+            >
+              <Text style={styles.addButtonText}>Create Task</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    padding: 24,
+    paddingBottom: 16,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    fontSize: 16,
+    marginTop: 4,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 100, // Space for FAB
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 48,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  input: {
+    height: 56,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  priorityContainer: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  priorityOptions: {
+    flexDirection: 'row',
+    gap: 8,
   },
+  priorityButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  addButton: {
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 64,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 18,
+  }
 });
