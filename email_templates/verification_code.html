@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Code</title>
+    <style>
+        /* Reset styles */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f4f6f8;
+            color: #333333;
+        }
+
+        /* Container */
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header */
+        .header {
+            background-color: #4f46e5;
+            /* Indigo-600 to match app theme */
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Content */
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #4b5563;
+            margin-bottom: 30px;
+        }
+
+        /* Code Box */
+        .code-box {
+            background-color: #f3f4f6;
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 auto 30px;
+            display: inline-block;
+            min-width: 200px;
+        }
+
+        .code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 32px;
+            font-weight: 700;
+            color: #4f46e5;
+            letter-spacing: 4px;
+            margin: 0;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Header with App Name -->
+        <div class="header">
+            <h1>{app_title}</h1>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <p class="greeting"><strong>Hello there!</strong></p>
+            <p class="message">
+                You requested to sign in to <strong>{app_title}</strong>. <br>
+                Please use the following verification code to complete your login.
+            </p>
+
+            <!-- Verification Code -->
+            <div class="code-box">
+                <h2 class="code">{code}</h2>
+            </div>
+
+            <p class="message" style="font-size: 14px; margin-bottom: 0;">
+                This code will expire in 24 hours. <br>
+                If you didn't request this code, you can safely ignore this email.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>&copy; 2026 {app_title}. All rights reserved.</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

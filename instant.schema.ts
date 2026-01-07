@@ -10,7 +10,6 @@ const _schema = i.schema({
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
-      imageURL: i.string().optional(),
       type: i.string().optional(),
     }),
     todos: i.entity({
@@ -46,6 +45,19 @@ const _schema = i.schema({
         on: "$users",
         has: "many",
         label: "todos",
+      },
+    },
+    usersImage: {
+      forward: {
+        on: "$users",
+        has: "one",
+        label: "avatarImage",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$files",
+        has: "one",
+        label: "user",
       },
     },
   },
