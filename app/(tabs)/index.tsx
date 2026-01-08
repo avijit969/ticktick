@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const [isModalVisible, setModalVisible] = useState(false);
   const [newTodoText, setNewTodoText] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
@@ -35,25 +36,36 @@ export default function HomeScreen() {
   const handleAddTodo = () => {
     if (!newTodoText.trim()) return;
 
-    const todoId = id();
+    if (editingTodoId) {
+      db.transact(
+        db.tx.todos[editingTodoId].update({
+          text: newTodoText,
+          priority,
+        })
+      );
+    } else {
+      const todoId = id();
 
-    // Create todo and link to user if logged in
-    const ops = [
-      db.tx.todos[todoId].update({
-        text: newTodoText,
-        isCompleted: false,
-        createdAt: Date.now(),
-        priority,
-      }),
-    ];
+      // Create todo and link to user if logged in
+      const ops = [
+        db.tx.todos[todoId].update({
+          text: newTodoText,
+          isCompleted: false,
+          createdAt: Date.now(),
+          priority,
+        }),
+      ];
 
-    if (user) {
-      ops.push(db.tx.todos[todoId].link({ owner: user.id }));
+      if (user) {
+        ops.push(db.tx.todos[todoId].link({ owner: user.id }));
+      }
+
+      db.transact(ops);
     }
 
-    db.transact(ops);
-
     setNewTodoText('');
+    setPriority('medium');
+    setEditingTodoId(null);
     setModalVisible(false);
   };
 
@@ -64,6 +76,13 @@ export default function HomeScreen() {
   const handleDeleteTodo = (todoId: string) => {
     db.transact(db.tx.todos[todoId].delete());
   };
+
+  const handleEditTodo = (todoId: string, text: string, priority?: "low" | "medium" | "high") => {
+    setNewTodoText(text);
+    setPriority(priority || 'medium');
+    setEditingTodoId(todoId);
+    setModalVisible(true);
+  }
 
   if (isLoading) {
     return (
@@ -98,9 +117,13 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TodoItem
-            todo={item}
+            todo={{
+              ...item,
+              priority: item.priority as "low" | "medium" | "high" | undefined
+            }}
             onToggle={handleToggleTodo}
             onDelete={handleDeleteTodo}
+            onEdit={handleEditTodo}
           />
         )}
         style={styles.list}
@@ -115,7 +138,12 @@ export default function HomeScreen() {
 
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.primary }]}
-        onPress={() => setModalVisible(true)}
+        onPress={() => {
+          setNewTodoText('');
+          setPriority('medium');
+          setEditingTodoId(null);
+          setModalVisible(true);
+        }}
       >
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
@@ -132,7 +160,9 @@ export default function HomeScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>New Task</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                {editingTodoId ? 'Edit Task' : 'New Task'}
+              </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color={theme.icon} />
               </TouchableOpacity>
@@ -152,6 +182,8 @@ export default function HomeScreen() {
               value={newTodoText}
               onChangeText={setNewTodoText}
               autoFocus
+              multiline
+              numberOfLines={4}
             />
 
             <View style={styles.priorityContainer}>
@@ -184,7 +216,9 @@ export default function HomeScreen() {
               style={[styles.addButton, { backgroundColor: theme.primary }]}
               onPress={handleAddTodo}
             >
-              <Text style={styles.addButtonText}>Create Task</Text>
+              <Text style={styles.addButtonText}>
+                {editingTodoId ? 'Update Task' : 'Create Task'}
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -257,7 +291,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   input: {
-    height: 56,
     borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 16,

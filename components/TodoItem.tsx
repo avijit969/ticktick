@@ -8,7 +8,7 @@ interface Todo {
     id: string;
     text: string;
     isCompleted: boolean;
-    priority?: string;
+    priority?: "low" | "medium" | "high";
     createdAt: number;
 }
 
@@ -16,9 +16,10 @@ interface TodoItemProps {
     todo: Todo;
     onToggle: (id: string, isCompleted: boolean) => void;
     onDelete: (id: string) => void;
+    onEdit: (id: string, text: string, priority?: "low" | "medium" | "high") => void
 }
 
-export default function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
+export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemProps) {
     const colorScheme = useColorScheme();
     const theme = Colors[colorScheme ?? 'dark'];
 
@@ -62,10 +63,14 @@ export default function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
                     </View>
                 )}
             </View>
-
-            <TouchableOpacity onPress={() => onDelete(todo.id)} style={styles.deleteButton}>
-                <Ionicons name="trash-outline" size={20} color={theme.danger} />
-            </TouchableOpacity>
+            <View style={styles.actionContainer}>
+                <TouchableOpacity onPress={() => onDelete(todo.id)} style={styles.deleteButton}>
+                    <Ionicons name="trash-outline" size={20} color={theme.danger} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onEdit(todo.id, todo.text, todo.priority)}>
+                    <Ionicons name="create-outline" size={20} color={theme.secondary} />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }
@@ -110,5 +115,10 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
         textTransform: 'uppercase',
+    },
+    actionContainer: {
+        flexDirection: 'column',
+        gap: 8,
+        alignItems: 'center',
     }
 });
