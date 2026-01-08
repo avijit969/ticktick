@@ -2,9 +2,10 @@ import TodoItem from '@/components/TodoItem';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { db } from '@/utils/db';
+import { cancelReminder, registerForPushNotificationsAsync, scheduleRecurringReminder } from '@/utils/notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { id } from '@instantdb/react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,18 +30,41 @@ export default function HomeScreen() {
   const [newTodoText, setNewTodoText] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+  const [reminderInterval, setReminderInterval] = useState<number>(0); // 0 means no reminder
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
 
-  const handleAddTodo = () => {
+  const handleAddTodo = async () => {
     if (!newTodoText.trim()) return;
+
+    let reminderId: string | undefined;
+
+    // Handle Reminder Scheduling
+    if (editingTodoId && editingReminderId) {
+      await cancelReminder(editingReminderId);
+    }
+
+    if (reminderInterval > 0) {
+      reminderId = await scheduleRecurringReminder(
+        "Task Reminder",
+        newTodoText,
+        reminderInterval
+      );
+    }
 
     if (editingTodoId) {
       db.transact(
         db.tx.todos[editingTodoId].update({
           text: newTodoText,
           priority,
+          reminderInterval,
+          reminderId,
         })
       );
     } else {
@@ -53,6 +77,8 @@ export default function HomeScreen() {
           isCompleted: false,
           createdAt: Date.now(),
           priority,
+          reminderInterval,
+          reminderId,
         }),
       ];
 
@@ -66,21 +92,53 @@ export default function HomeScreen() {
     setNewTodoText('');
     setPriority('medium');
     setEditingTodoId(null);
+    setEditingReminderId(null);
+    setReminderInterval(0);
     setModalVisible(false);
   };
 
-  const handleToggleTodo = (todoId: string, isCompleted: boolean) => {
+  const handleToggleTodo = async (todoId: string, isCompleted: boolean) => {
+    const todo = data?.todos.find((t: any) => t.id === todoId);
+    if (!todo) return;
+
+    if (isCompleted) {
+      // Task completed: cancel reminder
+      if (todo.reminderId) {
+        await cancelReminder(todo.reminderId);
+        db.transact(db.tx.todos[todoId].update({ isCompleted, reminderId: null }));
+        return;
+      }
+    } else {
+      // Task un-completed: reschedule if interval exists
+      if (todo.reminderInterval) {
+        const newReminderId = await scheduleRecurringReminder(
+          "Task Reminder",
+          todo.text,
+          todo.reminderInterval
+        );
+        db.transact(db.tx.todos[todoId].update({ isCompleted, reminderId: newReminderId }));
+        return;
+      }
+    }
+
     db.transact(db.tx.todos[todoId].update({ isCompleted }));
   };
 
-  const handleDeleteTodo = (todoId: string) => {
+  const handleDeleteTodo = async (todoId: string) => {
+    const todo = data?.todos.find((t: any) => t.id === todoId);
+    if (todo?.reminderId) {
+      await cancelReminder(todo.reminderId);
+    }
     db.transact(db.tx.todos[todoId].delete());
   };
 
-  const handleEditTodo = (todoId: string, text: string, priority?: "low" | "medium" | "high") => {
+  const handleEditTodo = (todoId: string, text: string, priority?: "low" | "medium" | "high", reminderInterval?: number) => {
+    const todo = data?.todos.find((t: any) => t.id === todoId);
     setNewTodoText(text);
     setPriority(priority || 'medium');
     setEditingTodoId(todoId);
+    setEditingReminderId(todo?.reminderId || null);
+    setReminderInterval(reminderInterval || 0);
     setModalVisible(true);
   }
 
@@ -142,6 +200,7 @@ export default function HomeScreen() {
           setNewTodoText('');
           setPriority('medium');
           setEditingTodoId(null);
+          setReminderInterval(0);
           setModalVisible(true);
         }}
       >
@@ -183,7 +242,7 @@ export default function HomeScreen() {
               onChangeText={setNewTodoText}
               autoFocus
               multiline
-              numberOfLines={4}
+              numberOfLines={3}
             />
 
             <View style={styles.priorityContainer}>
@@ -206,6 +265,36 @@ export default function HomeScreen() {
                       textTransform: 'capitalize'
                     }}>
                       {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.priorityContainer}>
+              <Text style={[styles.label, { color: theme.text }]}>Reminder:</Text>
+              <View style={styles.priorityOptions}>
+                {[
+                  { label: 'None', value: 0 },
+                  { label: '30m', value: 30 },
+                  { label: '1h', value: 60 },
+                  { label: 'Daily', value: 1440 }
+                ].map((opt) => (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[
+                      styles.priorityButton,
+                      {
+                        borderColor: theme.border,
+                        backgroundColor: reminderInterval === opt.value ? theme.primary : 'transparent'
+                      }
+                    ]}
+                    onPress={() => setReminderInterval(opt.value)}
+                  >
+                    <Text style={{
+                      color: reminderInterval === opt.value ? '#fff' : theme.text,
+                    }}>
+                      {opt.label}
                     </Text>
                   </TouchableOpacity>
                 ))}

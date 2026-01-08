@@ -10,13 +10,15 @@ interface Todo {
     isCompleted: boolean;
     priority?: "low" | "medium" | "high";
     createdAt: number;
+    reminderId?: string;
+    reminderInterval?: number;
 }
 
 interface TodoItemProps {
     todo: Todo;
     onToggle: (id: string, isCompleted: boolean) => void;
     onDelete: (id: string) => void;
-    onEdit: (id: string, text: string, priority?: "low" | "medium" | "high") => void
+    onEdit: (id: string, text: string, priority?: "low" | "medium" | "high", reminderInterval?: number) => void
 }
 
 export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemProps) {
@@ -62,12 +64,16 @@ export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemP
                         <Text style={[styles.badgeText, { color: getPriorityColor() }]}>{todo.priority}</Text>
                     </View>
                 )}
+                {/* Show reminder icon if exists */}
+                {todo.reminderInterval && !todo.isCompleted && (
+                    <Ionicons name="alarm-outline" size={16} color={theme.icon} style={{ marginLeft: 4 }} />
+                )}
             </View>
             <View style={styles.actionContainer}>
                 <TouchableOpacity onPress={() => onDelete(todo.id)} style={styles.deleteButton}>
                     <Ionicons name="trash-outline" size={20} color={theme.danger} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => onEdit(todo.id, todo.text, todo.priority)}>
+                <TouchableOpacity onPress={() => onEdit(todo.id, todo.text, todo.priority, todo.reminderInterval)}>
                     <Ionicons name="create-outline" size={20} color={theme.secondary} />
                 </TouchableOpacity>
             </View>

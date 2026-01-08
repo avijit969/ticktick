@@ -39,6 +39,14 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "sounds/notification-sound-1.wav"
+          ]
+        }
       ]
     ],
     "experiments": {

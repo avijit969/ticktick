@@ -18,6 +18,8 @@ const _schema = i.schema({
       createdAt: i.number(),
       dueDate: i.number().optional(),
       priority: i.string().optional(),
+      reminderId: i.string().optional(),
+      reminderInterval: i.number().optional(),
     }),
   },
   links: {
