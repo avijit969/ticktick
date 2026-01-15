@@ -3,7 +3,6 @@ import { Platform } from 'react-native';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
@@ -27,11 +26,12 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
+    Notifications.setNotificationChannelAsync('default-v2', {
+      name: 'Default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
+      sound: "notification_sound_1", // Remove .wav extension
     });
   }
 
@@ -50,7 +50,9 @@ export async function scheduleRecurringReminder(
     content: {
       title,
       body,
-      sound: true,
+      sound: false, // On Android 8.0+, sound is handled by the channel.
+      // @ts-ignore
+      channelId: "default-v2", // Ensure this matches the channel created above
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

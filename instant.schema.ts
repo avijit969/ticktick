@@ -21,6 +21,10 @@ const _schema = i.schema({
       reminderId: i.string().optional(),
       reminderInterval: i.number().optional(),
     }),
+    folders: i.entity({
+      name: i.string(),
+      color: i.string().optional(),
+    }),
   },
   links: {
     $usersLinkedPrimaryUser: {
@@ -60,6 +64,32 @@ const _schema = i.schema({
         on: "$files",
         has: "one",
         label: "user",
+      },
+    },
+    foldersOwner: {
+      forward: {
+        on: "folders",
+        has: "one",
+        label: "owner",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "folders",
+      },
+    },
+    todosFolder: {
+      forward: {
+        on: "todos",
+        has: "one",
+        label: "folder",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "folders",
+        has: "many",
+        label: "todos",
       },
     },
   },

@@ -276,6 +276,7 @@ export default function HomeScreen() {
               <View style={styles.priorityOptions}>
                 {[
                   { label: 'None', value: 0 },
+                  { label: "2m", value: 2 },
                   { label: '30m', value: 30 },
                   { label: '1h', value: 60 },
                   { label: 'Daily', value: 1440 }
