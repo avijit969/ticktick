@@ -1,16 +1,19 @@
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAlert } from '@/context/AlertContext';
+import { useTheme } from '@/context/ThemeContext';
 import { db } from '@/utils/db';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
     const { user } = db.useAuth();
-    const colorScheme = useColorScheme();
-    const theme = Colors[colorScheme ?? 'dark'];
+    const { theme, toggleTheme } = useTheme();
+    const isDark = theme === 'dark'; // Convenience
+    const colors = Colors[theme]; // Theme colors
+    const { showAlert } = useAlert();
     const [uploading, setUploading] = useState(false);
 
     // Query user and their todos for stats
@@ -31,7 +34,15 @@ export default function ProfileScreen() {
     const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     const handleSignOut = async () => {
-        await db.auth.signOut();
+        showAlert({
+            title: 'Sign Out',
+            message: 'Are you sure you want to sign out?',
+            type: 'confirm',
+            confirmText: 'Sign Out',
+            onConfirm: async () => {
+                await db.auth.signOut();
+            }
+        });
     };
 
     const pickImage = async () => {
@@ -56,8 +67,19 @@ export default function ProfileScreen() {
             const filename = `${user.id}/${Date.now()}.jpg`;
             const { data } = await db.storage.uploadFile(filename, blob);
             await db.transact(db.tx.$users[user.id].link({ avatarImage: data?.id }));
+
+            showAlert({
+                title: 'Success',
+                message: 'Profile photo updated successfully!',
+                type: 'success',
+            });
+
         } catch (error: any) {
-            Alert.alert('Upload Failed', error.message);
+            showAlert({
+                title: 'Upload Failed',
+                message: error.message,
+                type: 'error',
+            });
         } finally {
             setUploading(false);
         }
@@ -67,42 +89,42 @@ export default function ProfileScreen() {
     const displayName = currentUser?.email || user?.email;
 
     const StatCard = ({ label, value, icon, color }: { label: string, value: string | number, icon: keyof typeof Ionicons.glyphMap, color: string }) => (
-        <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
                 <Ionicons name={icon} size={24} color={color} />
             </View>
-            <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-            <Text style={[styles.statLabel, { color: theme.icon }]}>{label}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+            <Text style={[styles.statLabel, { color: colors.icon }]}>{label}</Text>
         </View>
     );
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={pickImage} disabled={uploading} activeOpacity={0.8}>
-                        <View style={[styles.avatarContainer, { borderColor: theme.card }]}>
+                        <View style={[styles.avatarContainer, { borderColor: colors.card }]}>
                             {uploading ? (
-                                <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+                                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                                     <ActivityIndicator color="#fff" size="large" />
                                 </View>
                             ) : displayImage ? (
                                 <Image source={{ uri: displayImage }} style={styles.avatar} />
                             ) : (
-                                <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+                                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                                     <Text style={styles.avatarText}>
                                         {displayName?.charAt(0).toUpperCase() ?? '?'}
                                     </Text>
                                 </View>
                             )}
-                            <View style={[styles.editBadge, { backgroundColor: theme.text }]}>
-                                <Ionicons name="camera" size={14} color={theme.background} />
+                            <View style={[styles.editBadge, { backgroundColor: colors.text, borderColor: colors.background }]}>
+                                <Ionicons name="camera" size={14} color={colors.background} />
                             </View>
                         </View>
                     </TouchableOpacity>
 
-                    <Text style={[styles.email, { color: theme.text }]}>{displayName}</Text>
-                    <Text style={[styles.memberSince, { color: theme.icon }]}>Member</Text>
+                    <Text style={[styles.email, { color: colors.text }]}>{displayName}</Text>
+                    <Text style={[styles.memberSince, { color: colors.icon }]}>Member</Text>
                 </View>
 
                 <View style={styles.statsGrid}>
@@ -110,7 +132,7 @@ export default function ProfileScreen() {
                         label="Total Tasks"
                         value={totalTasks}
                         icon="layers"
-                        color={theme.primary}
+                        color={colors.primary}
                     />
                     <StatCard
                         label="Completed"
@@ -133,32 +155,45 @@ export default function ProfileScreen() {
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.icon }]}>Settings</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.icon }]}>Settings</Text>
 
-                    <TouchableOpacity style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                        <View style={[styles.menuIcon, { backgroundColor: theme.inputBackground }]}>
-                            <Ionicons name="notifications-outline" size={20} color={theme.text} />
+                    <View style={[styles.menuItem, { backgroundColor: colors.card }]}>
+                        <View style={[styles.menuIcon, { backgroundColor: colors.inputBackground }]}>
+                            <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={colors.text} />
                         </View>
-                        <Text style={[styles.menuText, { color: theme.text }]}>Notifications</Text>
-                        <Ionicons name="chevron-forward" size={20} color={theme.icon} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Dark Mode</Text>
+                        <Switch
+                            value={isDark}
+                            onValueChange={toggleTheme}
+                            trackColor={{ false: '#767577', true: colors.primary }}
+                            thumbColor={isDark ? '#fff' : '#f4f3f4'}
+                        />
+                    </View>
+
+                    <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.card }]}>
+                        <View style={[styles.menuIcon, { backgroundColor: colors.inputBackground }]}>
+                            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                        </View>
+                        <Text style={[styles.menuText, { color: colors.text }]}>Notifications</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.icon} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                        <View style={[styles.menuIcon, { backgroundColor: theme.inputBackground }]}>
-                            <Ionicons name="lock-closed-outline" size={20} color={theme.text} />
+                    <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.card }]}>
+                        <View style={[styles.menuIcon, { backgroundColor: colors.inputBackground }]}>
+                            <Ionicons name="lock-closed-outline" size={20} color={colors.text} />
                         </View>
-                        <Text style={[styles.menuText, { color: theme.text }]}>Privacy & Security</Text>
-                        <Ionicons name="chevron-forward" size={20} color={theme.icon} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Privacy & Security</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.icon} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.section}>
                     <TouchableOpacity
-                        style={[styles.logoutButton, { backgroundColor: theme.danger + '15' }]}
+                        style={[styles.logoutButton, { backgroundColor: colors.danger + '15' }]}
                         onPress={handleSignOut}
                     >
-                        <Ionicons name="log-out-outline" size={20} color={theme.danger} />
-                        <Text style={[styles.logoutText, { color: theme.danger }]}>Sign Out</Text>
+                        <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+                        <Text style={[styles.logoutText, { color: colors.danger }]}>Sign Out</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
@@ -206,7 +241,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3,
-        borderColor: 'white', // Should match background but simplistic here
     },
     email: {
         fontSize: 24,

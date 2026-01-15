@@ -1,1 +1,10 @@
-export { useColorScheme } from 'react-native';
+import { useTheme } from '@/context/ThemeContext';
+
+export function useColorScheme() {
+  try {
+    const { theme } = useTheme();
+    return theme;
+  } catch {
+    return 'light';
+  }
+}

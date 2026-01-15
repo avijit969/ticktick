@@ -1,5 +1,6 @@
 import TodoItem from '@/components/TodoItem';
 import { Colors } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { db } from '@/utils/db';
 import { cancelReminder, scheduleRecurringReminder } from '@/utils/notifications';
@@ -43,10 +44,13 @@ export default function FolderDetailScreen() {
 
     const folder = data?.folders?.[0];
 
+    const { showAlert } = useAlert();
+
     const handleAddTodo = async () => {
         if (!newTodoText.trim() || !folderId) return;
 
         let reminderId: string | undefined;
+
         if (editingTodoId && editingReminderId) {
             await cancelReminder(editingReminderId);
         }
@@ -70,6 +74,7 @@ export default function FolderDetailScreen() {
             );
         } else {
             const todoId = id();
+
             const ops = [
                 db.tx.todos[todoId].update({
                     text: newTodoText,
@@ -123,11 +128,19 @@ export default function FolderDetailScreen() {
     };
 
     const handleDeleteTodo = async (todoId: string) => {
-        const todo = data?.todos.find((t: any) => t.id === todoId);
-        if (todo?.reminderId) {
-            await cancelReminder(todo.reminderId);
-        }
-        db.transact(db.tx.todos[todoId].delete());
+        showAlert({
+            title: 'Delete Task',
+            message: 'Are you sure you want to delete this task?',
+            type: 'warning',
+            confirmText: 'Delete',
+            onConfirm: async () => {
+                const todo = data?.todos.find((t: any) => t.id === todoId);
+                if (todo?.reminderId) {
+                    await cancelReminder(todo.reminderId);
+                }
+                db.transact(db.tx.todos[todoId].delete());
+            }
+        });
     };
 
     const handleEditTodo = (todoId: string, text: string, priority?: "low" | "medium" | "high", reminderInterval?: number) => {

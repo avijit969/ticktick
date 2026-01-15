@@ -19,6 +19,7 @@ import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { db } from '@/utils/db';
 
@@ -59,6 +60,8 @@ export default function FoldersScreen() {
     const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
+    const { showAlert } = useAlert();
+
     const handleAddFolder = () => {
         if (!newFolderName.trim()) return;
 
@@ -96,7 +99,15 @@ export default function FoldersScreen() {
     };
 
     const handleDeleteFolder = (folderId: string) => {
-        db.transact(db.tx.folders[folderId].delete());
+        showAlert({
+            title: 'Delete Folder',
+            message: 'Are you sure you want to delete this folder? All tasks inside will be deleted.',
+            type: 'warning',
+            confirmText: 'Delete',
+            onConfirm: () => {
+                db.transact(db.tx.folders[folderId].delete());
+            }
+        });
     };
 
     const openEditModal = (folder: any) => {

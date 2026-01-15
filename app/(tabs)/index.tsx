@@ -1,5 +1,6 @@
 import TodoItem from '@/components/TodoItem';
 import { Colors } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { db } from '@/utils/db';
 import { cancelReminder, registerForPushNotificationsAsync, scheduleRecurringReminder } from '@/utils/notifications';
@@ -19,9 +20,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 export default function HomeScreen() {
   const { user } = db.useAuth();
-  // Filter by owner.id. If user is null, pass null to skip query
   const { isLoading, error, data } = db.useQuery(
     user ? { todos: { $: { where: { 'owner.id': user.id } } } } : null
   );
@@ -31,7 +32,7 @@ export default function HomeScreen() {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
-  const [reminderInterval, setReminderInterval] = useState<number>(0); // 0 means no reminder
+  const [reminderInterval, setReminderInterval] = useState<number>(0);
 
   useEffect(() => {
     registerForPushNotificationsAsync();
@@ -40,12 +41,13 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
 
+  const { showAlert } = useAlert();
+
   const handleAddTodo = async () => {
     if (!newTodoText.trim()) return;
 
     let reminderId: string | undefined;
 
-    // Handle Reminder Scheduling
     if (editingTodoId && editingReminderId) {
       await cancelReminder(editingReminderId);
     }
@@ -70,7 +72,6 @@ export default function HomeScreen() {
     } else {
       const todoId = id();
 
-      // Create todo and link to user if logged in
       const ops = [
         db.tx.todos[todoId].update({
           text: newTodoText,
@@ -102,14 +103,12 @@ export default function HomeScreen() {
     if (!todo) return;
 
     if (isCompleted) {
-      // Task completed: cancel reminder
       if (todo.reminderId) {
         await cancelReminder(todo.reminderId);
         db.transact(db.tx.todos[todoId].update({ isCompleted, reminderId: null }));
         return;
       }
     } else {
-      // Task un-completed: reschedule if interval exists
       if (todo.reminderInterval) {
         const newReminderId = await scheduleRecurringReminder(
           "Task Reminder",
@@ -125,11 +124,19 @@ export default function HomeScreen() {
   };
 
   const handleDeleteTodo = async (todoId: string) => {
-    const todo = data?.todos.find((t: any) => t.id === todoId);
-    if (todo?.reminderId) {
-      await cancelReminder(todo.reminderId);
-    }
-    db.transact(db.tx.todos[todoId].delete());
+    showAlert({
+      title: 'Delete Task',
+      message: 'Are you sure you want to delete this task?',
+      type: 'warning',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        const todo = data?.todos.find((t: any) => t.id === todoId);
+        if (todo?.reminderId) {
+          await cancelReminder(todo.reminderId);
+        }
+        db.transact(db.tx.todos[todoId].delete());
+      }
+    });
   };
 
   const handleEditTodo = (todoId: string, text: string, priority?: "low" | "medium" | "high", reminderInterval?: number) => {
@@ -161,13 +168,23 @@ export default function HomeScreen() {
   const todos = data?.todos ?? [];
   const sortedTodos = [...todos].sort((a, b) => b.createdAt - a.createdAt);
 
+  const completedCount = todos.filter((t: any) => t.isCompleted).length;
+  const totalCount = todos.length;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Today's Tasks</Text>
-        <Text style={[styles.subtitle, { color: theme.icon }]}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </Text>
+        <View>
+          <Text style={[styles.title, { color: theme.text }]}>Today's Tasks</Text>
+          <Text style={[styles.subtitle, { color: theme.icon }]}>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </Text>
+        </View>
+        <View style={[styles.progressBadge, { backgroundColor: theme.card }]}>
+          <Text style={[styles.progressText, { color: theme.text }]}>
+            {completedCount}/{totalCount}
+          </Text>
+        </View>
       </View>
 
       <FlatList
@@ -190,6 +207,12 @@ export default function HomeScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="clipboard-outline" size={64} color={theme.icon} />
             <Text style={[styles.emptyText, { color: theme.icon }]}>No tasks yet</Text>
+            <TouchableOpacity
+              onPress={() => setModalVisible(true)}
+              style={{ marginTop: 16 }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 16, fontWeight: '600' }}>Create your first task</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -328,6 +351,9 @@ const styles = StyleSheet.create({
   header: {
     padding: 24,
     paddingBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 32,
@@ -336,6 +362,16 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     marginTop: 4,
+  },
+  progressBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(150,150,150,0.1)',
+  },
+  progressText: {
+    fontWeight: '700',
   },
   list: {
     flex: 1,
@@ -365,8 +401,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 24,
     paddingBottom: 48,
   },
@@ -377,13 +413,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   input: {
     borderRadius: 16,
-    paddingHorizontal: 16,
-    fontSize: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 18,
     borderWidth: 1,
     marginBottom: 24,
   },
@@ -391,13 +428,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   priorityOptions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   priorityButton: {
     paddingHorizontal: 16,
@@ -407,18 +444,19 @@ const styles = StyleSheet.create({
   },
   addButton: {
     height: 56,
-    borderRadius: 16,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 64,
+    marginTop: 80,
   },
   emptyText: {
     marginTop: 16,
