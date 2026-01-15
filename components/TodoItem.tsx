@@ -35,14 +35,15 @@ export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemP
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={[styles.container, { backgroundColor: theme.card, borderColor: 'rgba(150,150,150,0.1)' }]}>
             <TouchableOpacity
                 onPress={() => onToggle(todo.id, !todo.isCompleted)}
                 style={styles.checkboxContainer}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
                 <Ionicons
-                    name={todo.isCompleted ? 'checkbox' : 'square-outline'}
-                    size={24}
+                    name={todo.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={26}
                     color={todo.isCompleted ? theme.primary : theme.icon}
                 />
             </TouchableOpacity>
@@ -59,22 +60,34 @@ export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemP
                 >
                     {todo.text}
                 </Text>
-                {todo.priority && (
-                    <View style={[styles.badge, { backgroundColor: getPriorityColor() + '20' }]}>
-                        <Text style={[styles.badgeText, { color: getPriorityColor() }]}>{todo.priority}</Text>
-                    </View>
-                )}
-                {/* Show reminder icon if exists */}
-                {todo.reminderInterval && !todo.isCompleted && (
-                    <Ionicons name="alarm-outline" size={16} color={theme.icon} style={{ marginLeft: 4 }} />
-                )}
+
+                <View style={styles.metaContainer}>
+                    {todo.priority && (
+                        <View style={[styles.badge, { backgroundColor: getPriorityColor() + '15' }]}>
+                            <Text style={[styles.badgeText, { color: getPriorityColor() }]}>{todo.priority}</Text>
+                        </View>
+                    )}
+                    {todo.reminderInterval && !todo.isCompleted && (
+                        <View style={[styles.badge, { backgroundColor: theme.primary + '15' }]}>
+                            <Ionicons name="alarm-outline" size={12} color={theme.primary} style={{ marginRight: 4 }} />
+                            <Text style={[styles.badgeText, { color: theme.primary }]}>Remind</Text>
+                        </View>
+                    )}
+                </View>
             </View>
+
             <View style={styles.actionContainer}>
-                <TouchableOpacity onPress={() => onDelete(todo.id)} style={styles.deleteButton}>
-                    <Ionicons name="trash-outline" size={20} color={theme.danger} />
+                <TouchableOpacity
+                    onPress={() => onEdit(todo.id, todo.text, todo.priority, todo.reminderInterval)}
+                    style={[styles.actionButton, { backgroundColor: theme.border + '40' }]}
+                >
+                    <Ionicons name="pencil-outline" size={18} color={theme.text} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => onEdit(todo.id, todo.text, todo.priority, todo.reminderInterval)}>
-                    <Ionicons name="create-outline" size={20} color={theme.secondary} />
+                <TouchableOpacity
+                    onPress={() => onDelete(todo.id)}
+                    style={[styles.actionButton, { backgroundColor: theme.danger + '20' }]}
+                >
+                    <Ionicons name="trash-outline" size={18} color={theme.danger} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -84,47 +97,58 @@ export default function TodoItem({ todo, onToggle, onDelete, onEdit }: TodoItemP
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start', // Align to top for multiline text
         padding: 16,
-        borderRadius: 16,
+        borderRadius: 20,
         marginBottom: 12,
         borderWidth: 1,
+        // Softer shadow
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
         elevation: 2,
     },
     checkboxContainer: {
-        marginRight: 12,
+        marginRight: 16,
+        marginTop: 2,
     },
     textContainer: {
         flex: 1,
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        alignItems: 'center',
         gap: 8,
     },
     text: {
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '500',
+        lineHeight: 24,
     },
-    deleteButton: {
-        padding: 8,
+    metaContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
     },
     badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
     badgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
+        fontSize: 11,
+        fontWeight: '700',
         textTransform: 'uppercase',
     },
     actionContainer: {
-        flexDirection: 'column',
+        flexDirection: 'row',
         gap: 8,
+        marginLeft: 12,
+    },
+    actionButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
     }
 });

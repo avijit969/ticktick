@@ -24,6 +24,8 @@ const _schema = i.schema({
     folders: i.entity({
       name: i.string(),
       color: i.string().optional(),
+      createdAt: i.number().optional(),
+      updatedAt: i.number().optional(),
     }),
   },
   links: {
