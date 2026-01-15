@@ -24,6 +24,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="folders"
+        options={{
+          title: 'Folders',
+          tabBarIcon: ({ color }) => <Feather size={28} name="folder" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
